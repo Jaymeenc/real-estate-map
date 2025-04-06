@@ -1,3 +1,6 @@
+// Paste this entire file in your MapWithFilters.js
+// Make sure Tailwind is enabled in your project
+
 import React, { useEffect, useState } from "react";
 import Papa from "papaparse";
 import {
@@ -38,10 +41,11 @@ function MapWithFilters() {
       header: true,
       complete: (results) => {
         const parsed = results.data.filter((d) => d["Latitude"] && d["Longitude"]);
-        setData(parsed);
+        const filledData = fillMergedCells(parsed);
+        setData(filledData);
 
         const allFilters = {};
-        parsed.forEach((item) => {
+        filledData.forEach((item) => {
           Object.entries(item).forEach(([key, value]) => {
             if (["Latitude", "Longitude", "Price (₹)"].includes(key)) return;
             if (!allFilters[key]) allFilters[key] = new Set();
@@ -53,28 +57,45 @@ function MapWithFilters() {
         Object.entries(allFilters).forEach(([key, valSet]) => {
           filtersObj[key] = {
             options: Array.from(valSet),
-            selected: "",
+            selected: [],
           };
         });
+
         setFilters(filtersObj);
 
-        const prices = parsed.map((d) => parseFloat(d["Price (₹)"])).filter(Boolean);
+        const prices = filledData.map((d) => parseFloat(d["Price (₹)"])).filter(Boolean);
         const min = Math.min(...prices);
         const max = Math.max(...prices);
         setPriceRange([min, max]);
 
-        groupPins(parsed, filtersObj, [min, max]);
+        groupPins(filledData, filtersObj, [min, max]);
       },
     });
   }, [csvUrl]);
+
+  const fillMergedCells = (rows) => {
+    const filledRows = [...rows];
+    const lastValues = {};
+    for (let i = 0; i < filledRows.length; i++) {
+      const row = filledRows[i];
+      for (const key in row) {
+        if (row[key] && row[key].trim()) {
+          lastValues[key] = row[key].trim();
+        } else {
+			row[key] = (lastValues[key] || "").trim();
+        }
+      }
+    }
+    return filledRows;
+  };
 
   const groupPins = (rawData, filters, range) => {
     let filtered = [...rawData];
 
     Object.keys(filters).forEach((key) => {
       const selected = filters[key].selected;
-      if (selected) {
-        filtered = filtered.filter((item) => item[key] === selected);
+      if (selected.length > 0) {
+        filtered = filtered.filter((item) => selected.includes(item[key]));
       }
     });
 
@@ -99,10 +120,30 @@ function MapWithFilters() {
     setSelected(null);
   };
 
-  const handleFilterChange = (key, value) => {
+  const toggleOption = (key, option) => {
+    setFilters((prev) => {
+      const selected = prev[key].selected.includes(option)
+        ? prev[key].selected.filter((val) => val !== option)
+        : [...prev[key].selected, option];
+
+      return {
+        ...prev,
+        [key]: { ...prev[key], selected },
+      };
+    });
+  };
+
+  const selectAll = (key) => {
     setFilters((prev) => ({
       ...prev,
-      [key]: { ...prev[key], selected: value },
+      [key]: { ...prev[key], selected: [...prev[key].options] },
+    }));
+  };
+
+  const clearAll = (key) => {
+    setFilters((prev) => ({
+      ...prev,
+      [key]: { ...prev[key], selected: [] },
     }));
   };
 
@@ -115,12 +156,7 @@ function MapWithFilters() {
   if (!isLoaded) return <div>Loading map...</div>;
 
   return (
-   <div
-  className="flex flex-col relative"
-  style={{ height: "100dvh", paddingBottom: "env(safe-area-inset-bottom)" }}
->
-
-      {/* Map Area */}
+    <div className="flex flex-col relative" style={{ height: "100dvh" }}>
       <div className="flex-1">
         <GoogleMap mapContainerStyle={containerStyle} center={center} zoom={12}>
           <MarkerClusterer>
@@ -159,32 +195,44 @@ function MapWithFilters() {
         </GoogleMap>
       </div>
 
-      {/* Bottom Filter Panel */}
+      {/* Filters Bottom Drawer */}
       {showFilters && (
-        <div className="absolute bottom-0 left-0 right-0 max-h-[80vh] bg-white shadow-xl border-t z-20 flex flex-col overflow-hidden">
-          {/* Scrollable Filters */}
-          <div className="overflow-y-auto p-4" style={{ maxHeight: "calc(80vh - 64px)" }}>
+        <div className="absolute bottom-0 left-0 right-0 h-[80vh] bg-white z-30 shadow-xl flex flex-col overflow-hidden border-t rounded-t-xl">
+          <div className="overflow-y-auto p-4">
             <h2 className="text-lg font-bold mb-4">Filters</h2>
 
             {Object.keys(filters).map((key) => (
-              <div key={key} className="mb-3">
-                <label className="block text-sm font-semibold">{key}</label>
-                <select
-                  className="w-full p-2 rounded border"
-                  value={filters[key].selected}
-                  onChange={(e) => handleFilterChange(key, e.target.value)}
-                >
-                  <option value="">All</option>
-                  {filters[key].options.map((option, i) => (
-                    <option key={i} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
+              <div key={key} className="mb-5">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-sm font-semibold">{key}</label>
+                  <div className="space-x-2 text-xs text-blue-600">
+                    <button onClick={() => selectAll(key)}>Select All</button>
+                    <button onClick={() => clearAll(key)}>Clear</button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {filters[key].options.map((option, i) => {
+                    const selected = filters[key].selected.includes(option);
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => toggleOption(key, option)}
+                        className={`px-3 py-1 rounded-full border text-sm ${
+                          selected
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-white text-gray-800 border-gray-300"
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             ))}
 
-            <div className="mb-3">
+            {/* Price Range */}
+            <div className="mb-4">
               <label className="block text-sm font-semibold">Price Range (₹)</label>
               <div className="flex gap-2 items-center">
                 <input
@@ -206,11 +254,8 @@ function MapWithFilters() {
             </div>
           </div>
 
-          {/* Sticky Apply Button */}
-          <div
-            className="p-4 border-t bg-white"
-            style={{ position: "sticky", bottom: 0 }}
-          >
+          {/* Apply Button */}
+          <div className="p-4 border-t bg-white">
             <button
               onClick={applyFilters}
               className="bg-blue-600 text-white w-full py-3 rounded text-lg font-medium"
@@ -224,22 +269,20 @@ function MapWithFilters() {
       {/* Show Filters Button */}
       {!showFilters && (
         <div
-  className="fixed bottom-0 left-0 right-0 bg-white shadow-inner z-30"
-  style={{
-    padding: "1rem",
-    paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)",
-  }}
->
-
-          <button
-            className="bg-blue-600 text-white w-full py-3 rounded text-lg font-medium"
-            onClick={() => {
-              setShowFilters(true);
-              setSelected(null);
-            }}
-          >
-            Show Filters
-          </button>
+          className="fixed bottom-0 left-0 right-0 bg-white shadow-inner z-30"
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}
+        >
+          <div className="p-3">
+            <button
+              className="bg-blue-600 text-white w-full py-3 rounded text-lg font-medium"
+              onClick={() => {
+                setShowFilters(true);
+                setSelected(null);
+              }}
+            >
+              Show Filters
+            </button>
+          </div>
         </div>
       )}
     </div>
