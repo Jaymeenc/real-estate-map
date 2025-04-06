@@ -95,8 +95,8 @@ function MapWithFilters() {
 
   const applyFilters = () => {
     groupPins(data, filters, priceRange);
-    setShowFilters(false); // Close filters after applying
-    setSelected(null);     // Close popup when filters are applied
+    setShowFilters(false);
+    setSelected(null);
   };
 
   const handleFilterChange = (key, value) => {
@@ -157,9 +157,9 @@ function MapWithFilters() {
 
       {/* Bottom Filter Panel */}
       {showFilters && (
-        <div className="absolute bottom-0 left-0 right-0 max-h-[80vh] bg-white shadow-xl border-t z-20 flex flex-col">
-          {/* Scrollable filters section */}
-          <div className="overflow-y-auto p-4 flex-1">
+        <div className="absolute bottom-0 left-0 right-0 max-h-[80vh] bg-white shadow-xl border-t z-20 flex flex-col overflow-hidden">
+          {/* Scrollable Filters */}
+          <div className="overflow-y-auto p-4" style={{ maxHeight: "calc(80vh - 64px)" }}>
             <h2 className="text-lg font-bold mb-4">Filters</h2>
 
             {Object.keys(filters).map((key) => (
@@ -202,8 +202,11 @@ function MapWithFilters() {
             </div>
           </div>
 
-          {/* Fixed Apply button */}
-          <div className="p-4 border-t bg-white">
+          {/* Sticky Apply Button */}
+          <div
+            className="p-4 border-t bg-white"
+            style={{ position: "sticky", bottom: 0 }}
+          >
             <button
               onClick={applyFilters}
               className="bg-blue-600 text-white w-full py-3 rounded text-lg font-medium"
@@ -214,14 +217,14 @@ function MapWithFilters() {
         </div>
       )}
 
-      {/* Sticky Bottom Button */}
+      {/* Show Filters Button */}
       {!showFilters && (
         <div className="fixed bottom-0 left-0 right-0 bg-white shadow-inner p-3 z-30">
           <button
             className="bg-blue-600 text-white w-full py-3 rounded text-lg font-medium"
             onClick={() => {
               setShowFilters(true);
-              setSelected(null); // ✅ Close any open info popup
+              setSelected(null);
             }}
           >
             Show Filters
