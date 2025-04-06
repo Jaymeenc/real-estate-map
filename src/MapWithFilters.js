@@ -115,7 +115,11 @@ function MapWithFilters() {
   if (!isLoaded) return <div>Loading map...</div>;
 
   return (
-    <div className="flex flex-col h-screen relative">
+   <div
+  className="flex flex-col relative"
+  style={{ height: "100dvh", paddingBottom: "env(safe-area-inset-bottom)" }}
+>
+
       {/* Map Area */}
       <div className="flex-1">
         <GoogleMap mapContainerStyle={containerStyle} center={center} zoom={12}>
@@ -219,7 +223,14 @@ function MapWithFilters() {
 
       {/* Show Filters Button */}
       {!showFilters && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white shadow-inner p-3 z-30">
+        <div
+  className="fixed bottom-0 left-0 right-0 bg-white shadow-inner z-30"
+  style={{
+    padding: "1rem",
+    paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)",
+  }}
+>
+
           <button
             className="bg-blue-600 text-white w-full py-3 rounded text-lg font-medium"
             onClick={() => {
