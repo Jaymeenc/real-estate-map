@@ -18,7 +18,7 @@ const containerStyle = {
 
 const center = { lat: 23.0225, lng: 72.5714 };
 
-function MapWithFilters() {
+function MapWithFilters({ onLogout }) {
   const [data, setData] = useState([]);
   const [groupedData, setGroupedData] = useState([]);
   const [filters, setFilters] = useState({});
@@ -205,6 +205,14 @@ function MapWithFilters() {
 
   return (
     <div className="flex flex-col relative" style={{ height: "100dvh" }}>
+      <div className="absolute top-2 right-2 z-10">
+        <button 
+          onClick={onLogout}
+          className="bg-white px-3 py-1 rounded-md shadow-md text-sm font-medium text-gray-700 hover:bg-gray-100"
+        >
+          Logout
+        </button>
+      </div>
       <div className="flex-1">
         <GoogleMap mapContainerStyle={containerStyle} center={center} zoom={12}>
           <MarkerClusterer>
