@@ -25,6 +25,7 @@ function MapWithFilters() {
   const [selected, setSelected] = useState(null);
   const [priceRange, setPriceRange] = useState([0, 1000]);
   const [showFilters, setShowFilters] = useState(false);
+  const [possessionDate, setPossessionDate] = useState("");
 
   const csvUrl = process.env.REACT_APP_CSV_URL;
 
@@ -47,7 +48,8 @@ function MapWithFilters() {
         const allFilters = {};
         filledData.forEach((item) => {
           Object.entries(item).forEach(([key, value]) => {
-            if (["Latitude", "Longitude", "Price (₹)"].includes(key)) return;
+            // Exclude Latitude, Longitude, Price, and Project Name from filters
+            if (["Latitude", "Longitude", "Price (₹)", "Project Name"].includes(key)) return;
             if (!allFilters[key]) allFilters[key] = new Set();
             if (value && value.trim()) allFilters[key].add(value.trim());
           });
@@ -63,9 +65,21 @@ function MapWithFilters() {
 
         setFilters(filtersObj);
 
-        const prices = filledData.map((d) => parseFloat(d["Price (₹)"])).filter(Boolean);
+        // Handle price ranges
+        const prices = filledData.map((d) => {
+          const priceStr = d["Price (₹)"];
+          if (!priceStr) return null;
+          
+          // Check if price is in range format (e.g., "100-200")
+          if (priceStr.includes('-')) {
+            const [min] = priceStr.split('-').map(p => parseFloat(p));
+            return min; // Return the minimum value for setting the range
+          }
+          return parseFloat(priceStr);
+        }).filter(Boolean);
+
         const min = Math.min(...prices);
-        const max = Math.max(...prices);
+        const max = Math.max(...prices) * 1.5; // Extend max range a bit
         setPriceRange([min, max]);
 
         groupPins(filledData, filtersObj, [min, max]);
@@ -82,7 +96,7 @@ function MapWithFilters() {
         if (row[key] && row[key].trim()) {
           lastValues[key] = row[key].trim();
         } else {
-			row[key] = (lastValues[key] || "").trim();
+          row[key] = (lastValues[key] || "").trim();
         }
       }
     }
@@ -92,6 +106,7 @@ function MapWithFilters() {
   const groupPins = (rawData, filters, range) => {
     let filtered = [...rawData];
 
+    // Apply regular filters
     Object.keys(filters).forEach((key) => {
       const selected = filters[key].selected;
       if (selected.length > 0) {
@@ -99,10 +114,39 @@ function MapWithFilters() {
       }
     });
 
+    // Apply price filter
     filtered = filtered.filter((item) => {
-      const price = parseFloat(item["Price (₹)"]);
+      const priceStr = item["Price (₹)"];
+      if (!priceStr) return false;
+      
+      if (priceStr.includes('-')) {
+        const [min, max] = priceStr.split('-').map(p => parseFloat(p));
+        return min <= range[1] && max >= range[0];
+      }
+      
+      const price = parseFloat(priceStr);
       return !isNaN(price) && price >= range[0] && price <= range[1];
     });
+
+    // Apply possession date filter
+    if (possessionDate) {
+      const selectedDate = new Date(possessionDate);
+      filtered = filtered.filter((item) => {
+        if (!item.Possession) return true;
+        
+        // Parse possession date (e.g., "Dec 2027")
+        const [month, year] = item.Possession.split(' ');
+        const monthMap = {
+          'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
+          'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
+        };
+        
+        if (!monthMap[month] || !year) return true;
+        
+        const itemDate = new Date(parseInt(year), monthMap[month], 1);
+        return itemDate <= selectedDate;
+      });
+    }
 
     const groups = {};
     filtered.forEach((item) => {
@@ -151,6 +195,10 @@ function MapWithFilters() {
     const newRange = [...priceRange];
     newRange[idx] = parseFloat(e.target.value);
     setPriceRange(newRange);
+  };
+
+  const handlePossessionDateChange = (e) => {
+    setPossessionDate(e.target.value);
   };
 
   if (!isLoaded) return <div>Loading map...</div>;
